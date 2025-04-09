@@ -3,8 +3,8 @@ services:
     name: lbu-image-auth-checker
     env: python
     plan: free
-    buildCommand: ""
-    startCommand: gunicorn app:app
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: gunicorn app:app --chdir backend
     envVars:
       - key: PYTHON_VERSION
-        value: 3.10
+        value: 3.11
