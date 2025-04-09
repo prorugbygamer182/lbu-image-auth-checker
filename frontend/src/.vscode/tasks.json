@@ -1,0 +1,44 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // Task 1: Run Flask in the background
+      "label": "Run Flask",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "app.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      // isBackground tells VS Code this task never 'completes' but should allow the next task to run
+      "isBackground": true,
+      // No default problem matchers
+      "problemMatcher": []
+    },
+    {
+      // Task 2: Run React
+      "label": "Run React",
+      "type": "shell",
+      "command": "npm",
+      "args": [
+        "start"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "problemMatcher": []
+    },
+    {
+      // Task 3: Run Both in Sequence (Flask first, then React)
+      "label": "Run Both",
+      "dependsOn": [
+        "Run Flask",
+        "Run React"
+      ],
+      // "sequence" ensures the second task doesn't start until the first is in background
+      "dependsOrder": "sequence"
+    }
+  ]
+}
