@@ -16,6 +16,20 @@ const ImageUpload = () => {
   const [loading, setLoading] = useState(false);
   const [uploadCompleted, setUploadCompleted] = useState(false);
 
+  const [simulateMode, setSimulateMode] = useState(false);
+  const [simulatedEdits, setSimulatedEdits] = useState({});
+  const [simulatedResults, setSimulatedResults] = useState(null);
+  const [simError, setSimError] = useState("");
+
+  const [authScore, setAuthScore] = useState(null);
+  const [authFlags, setAuthFlags] = useState([]);
+  const [authLevel, setAuthLevel] = useState("");
+  const [authRecommendation, setAuthRecommendation] = useState("");
+  const [authError, setAuthError] = useState("");
+
+  const [aiResult, setAiResult] = useState(null);
+  const [aiError, setAiError] = useState("");
+
   const handleFileChange = (event) => {
     setSelectedFile(event.target.files[0]);
     setMetadata(null);
@@ -26,6 +40,13 @@ const ImageUpload = () => {
     setElaImage(null);
     setError("");
     setUploadCompleted(false);
+    setSimulatedResults(null);
+    setAuthScore(null);
+    setAuthFlags([]);
+    setAuthLevel("");
+    setAuthRecommendation("");
+    setAiResult(null);
+    setAiError("");
   };
 
   const handleUpload = async () => {
@@ -59,6 +80,18 @@ const ImageUpload = () => {
       setError("❌ Error uploading file. Ensure the backend is running.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAIAnalysis = async () => {
+    setAiError("");
+    try {
+      const response = await axios.post("/ai-analyze-metadata", {
+        metadata: metadata,
+      });
+      setAiResult(response.data);
+    } catch (err) {
+      setAiError("❌ Failed to run AI metadata analysis.");
     }
   };
 
@@ -133,34 +166,199 @@ const ImageUpload = () => {
         )}
 
         {metadata && (
-          <div className="card shadow mt-4 p-4">
-            <h4 className="fw-bold text-center mb-3">Extracted Metadata</h4>
-            <table className="table table-bordered table-hover">
+          <>
+            <div className="card shadow mt-4 p-4">
+              <h4 className="fw-bold text-center mb-3">Extracted Metadata</h4>
+              <table className="table table-bordered table-hover">
+                <tbody>
+                  {Object.entries(metadata).map(([key, value]) => {
+                    if (key === "Flags") return null;
+                    return (
+                      <tr key={key}>
+                        <th>{key}</th>
+                        <td>{value}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {metadata?.Flags?.length > 0 && (
+              <div className="alert alert-warning mt-3">
+                <strong>Metadata Consistency Warnings:</strong>
+                <ul className="mb-0">
+                  {metadata.Flags.map((flag, idx) => (
+                    <li key={idx}>{flag}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="d-flex flex-wrap gap-2 mt-3">
+              <button
+                className="btn btn-outline-secondary"
+                onClick={() => {
+                  setSimulateMode(!simulateMode);
+                  setSimulatedEdits(metadata);
+                  setSimulatedResults(null);
+                }}
+              >
+                {simulateMode ? "Cancel Simulation" : "Simulate Metadata Manipulation"}
+              </button>
+
+              <button
+                className="btn btn-outline-success"
+                onClick={async () => {
+                  setAuthError("");
+                  try {
+                    const response = await axios.post("/verify-authenticity", {
+                      file_name: selectedFile.name,
+                    });
+                    setAuthScore(response.data.authenticity_score);
+                    setAuthFlags(response.data.flags);
+                    setAuthLevel(response.data.risk_level);
+                    setAuthRecommendation(response.data.recommendation);
+                  } catch (err) {
+                    setAuthError("❌ Failed to verify authenticity.");
+                  }
+                }}
+              >
+                Verify Image Authenticity
+              </button>
+
+              <button
+                className="btn btn-outline-dark"
+                onClick={handleAIAnalysis}
+              >
+                Run AI Forgery Analysis
+              </button>
+            </div>
+          </>
+        )}
+
+        {aiResult && (
+          <div className="card shadow mt-4 p-4 bg-white">
+            <h5 className="fw-bold text-center mb-3">AI Metadata Forgery Analysis</h5>
+            <p><strong>Confidence Score:</strong> {aiResult.confidence_score} / 100</p>
+            <p><strong>Verdict:</strong> {aiResult.verdict}</p>
+            {aiResult.evidence?.length > 0 && (
+              <>
+                <p><strong>Detected Issues:</strong></p>
+                <ul>
+                  {aiResult.evidence.map((item, idx) => (
+                    <li key={idx}>{item}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
+        {aiError && <div className="alert alert-danger mt-3">{aiError}</div>}
+
+        {simulateMode && (
+          <div className="card shadow mt-4 p-4 bg-white">
+            <h5 className="fw-bold mb-3 text-center">Simulate Metadata Changes</h5>
+            {Object.entries(metadata).map(([key, value]) => {
+              if (key === "Flags") return null;
+              return (
+                <div className="mb-2" key={key}>
+                  <label className="form-label fw-semibold">{key}</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={simulatedEdits[key] || ""}
+                    onChange={(e) =>
+                      setSimulatedEdits((prev) => ({ ...prev, [key]: e.target.value }))
+                    }
+                  />
+                </div>
+              );
+            })}
+            <button
+              className="btn btn-danger w-100 mt-3"
+              onClick={async () => {
+                setSimError("");
+                try {
+                  const response = await axios.post("/simulate-metadata", {
+                    file_name: selectedFile.name,
+                    edits: simulatedEdits,
+                  });
+                  setSimulatedResults(response.data);
+                } catch (err) {
+                  setSimError("❌ Failed to simulate manipulation.");
+                }
+              }}
+            >
+              Run Simulation
+            </button>
+            {simError && <div className="alert alert-danger mt-3">{simError}</div>}
+          </div>
+        )}
+
+        {simulatedResults && (
+          <div className="card shadow mt-4 p-4 bg-light">
+            <h5 className="fw-bold text-center mb-3">Simulation Results</h5>
+            <table className="table table-bordered">
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Original</th>
+                  <th>Simulated</th>
+                </tr>
+              </thead>
               <tbody>
-                {Object.entries(metadata).map(([key, value]) => {
-                  if (key === "Flags") return null;
+                {Object.entries(simulatedResults.simulated_metadata).map(([key, newVal]) => {
+                  if (key === "Simulated Flags") return null;
+                  const originalVal = simulatedResults.original_metadata[key];
+                  const changed = originalVal !== newVal;
                   return (
-                    <tr key={key}>
-                      <th>{key}</th>
-                      <td>{value}</td>
+                    <tr key={key} className={changed ? "table-warning" : ""}>
+                      <td>{key}</td>
+                      <td>{originalVal}</td>
+                      <td>{newVal}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+
+            {simulatedResults.simulated_flags.length > 0 && (
+              <div className="alert alert-warning">
+                <strong>Detected Manipulation Warnings:</strong>
+                <ul className="mb-0">
+                  {simulatedResults.simulated_flags.map((flag, idx) => (
+                    <li key={idx}>{flag}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {simulatedResults.simulated_flags.length === 0 && (
+              <div className="alert alert-success text-center">✅ No suspicious metadata detected.</div>
+            )}
           </div>
         )}
 
-        {metadata?.Flags?.length > 0 && (
-          <div className="alert alert-warning mt-3">
-            <strong>Metadata Consistency Warnings:</strong>
-            <ul className="mb-0">
-              {metadata.Flags.map((flag, idx) => (
-                <li key={idx}>{flag}</li>
-              ))}
-            </ul>
+        {authScore !== null && (
+          <div className="card shadow mt-4 p-4 bg-white">
+            <h5 className="fw-bold text-center mb-3">Authenticity Verification Results</h5>
+            <p><strong>Authenticity Score:</strong> {authScore} / 100</p>
+            <p><strong>Risk Level:</strong> {authLevel}</p>
+            {authFlags.length > 0 && (
+              <>
+                <p><strong>Red Flags:</strong></p>
+                <ul>
+                  {authFlags.map((flag, idx) => <li key={idx}>{flag}</li>)}
+                </ul>
+              </>
+            )}
+            <div className={`alert mt-3 ${authLevel === "High" ? "alert-danger" : authLevel === "Medium" ? "alert-warning" : "alert-success"}`}>
+              <strong>{authRecommendation}</strong>
+            </div>
           </div>
         )}
+        {authError && <div className="alert alert-danger mt-3">{authError}</div>}
 
         {elaImage && (
           <div className="text-center mt-5">

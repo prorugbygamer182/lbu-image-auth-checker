@@ -1,8 +1,16 @@
+# Ignore React dev build but keep production one
+frontend/build/
+
+# Python ignores
 venv/
 __pycache__/
 *.pyc
+
+# Node modules
 node_modules/
+frontend/node_modules/
+
+# Misc
 .env
 .DS_Store
-build/
 uploads/
